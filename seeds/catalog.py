@@ -2,7 +2,6 @@
 
 from django.apps import apps as global_apps
 
-
 CATEGORIES = (
     (1, "games", "Games", 1),
     (2, "updates", "Updates", 2),

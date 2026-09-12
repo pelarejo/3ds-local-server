@@ -1,15 +1,20 @@
+import re
 from collections.abc import Iterator
 from pathlib import Path
-import re
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
 
 from apps.authentication.views import header_auth_required
-from threehs_backend.nb import ResultNamespace, ResultReason, result_response, token_payload, versioned_response
+from threehs_backend.nb import (
+    ResultNamespace,
+    ResultReason,
+    result_response,
+    token_payload,
+    versioned_response,
+)
 
 from .models import ContentArtifact, DownloadGrant
-
 
 RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)\Z")
 
@@ -63,12 +68,21 @@ def _parse_range(value: str | None, size: int) -> tuple[int, int] | None:
 @header_auth_required(ResultNamespace.TOKEN)
 def request_download(request: HttpRequest, id: int) -> HttpResponse:
     try:
-        artifact = ContentArtifact.objects.select_related("title").get(title_id=id, enabled=True, title__listed=True)
+        artifact = ContentArtifact.objects.select_related("title").get(
+            title_id=id, enabled=True, title__listed=True
+        )
         path = _artifact_path(artifact)
         if not path.is_file() or path.stat().st_size != artifact.byte_size:
-            raise OSError("artifact is absent or its size does not match catalog metadata")
+            raise OSError(
+                "artifact is absent or its size does not match catalog metadata"
+            )
     except (ContentArtifact.DoesNotExist, OSError, ValueError):
-        return result_response(ResultNamespace.TITLE, ResultReason.NOT_FOUND, "Download is unavailable.", status=404)
+        return result_response(
+            ResultNamespace.TITLE,
+            ResultReason.NOT_FOUND,
+            "Download is unavailable.",
+            status=404,
+        )
     grant, raw_token = DownloadGrant.issue(artifact=artifact, user=request.user)
     return versioned_response(token_payload(grant, raw_token))
 
@@ -87,14 +101,29 @@ def download(request: HttpRequest, id: int) -> HttpResponse:
         if not path.is_file() or actual_size != grant.artifact.byte_size:
             raise OSError
     except (UnicodeError, DownloadGrant.DoesNotExist, OSError, ValueError):
-        return result_response(ResultNamespace.TOKEN, ResultReason.UNAUTHORIZED, "Invalid or expired download token.", status=401)
+        return result_response(
+            ResultNamespace.TOKEN,
+            ResultReason.UNAUTHORIZED,
+            "Invalid or expired download token.",
+            status=401,
+        )
 
     try:
         byte_range = _parse_range(request.headers.get("Range"), actual_size)
     except ValueError:
-        return result_response(ResultNamespace.TOKEN, ResultReason.INVALID_ARGUMENT, "Only one valid byte range is supported.", status=400)
+        return result_response(
+            ResultNamespace.TOKEN,
+            ResultReason.INVALID_ARGUMENT,
+            "Only one valid byte range is supported.",
+            status=400,
+        )
     except IndexError:
-        response = result_response(ResultNamespace.TOKEN, ResultReason.INVALID_ARGUMENT, "Requested byte range is unsatisfiable.", status=416)
+        response = result_response(
+            ResultNamespace.TOKEN,
+            ResultReason.INVALID_ARGUMENT,
+            "Requested byte range is unsatisfiable.",
+            status=416,
+        )
         response["Accept-Ranges"] = "bytes"
         response["Content-Range"] = f"bytes */{actual_size}"
         return response
@@ -104,10 +133,19 @@ def download(request: HttpRequest, id: int) -> HttpResponse:
     else:
         start, end, status = *byte_range, 206
     length = max(end - start + 1, 0)
-    response = StreamingHttpResponse(_file_chunks(path, start, length), status=status, content_type="application/octet-stream")
+    response = StreamingHttpResponse(
+        _file_chunks(path, start, length),
+        status=status,
+        content_type="application/octet-stream",
+    )
     response["Content-Length"] = str(length)
     response["Accept-Ranges"] = "bytes"
-    safe_filename = Path(grant.artifact.title.filename).name.replace('"', "_").replace("\r", "_").replace("\n", "_")
+    safe_filename = (
+        Path(grant.artifact.title.filename)
+        .name.replace('"', "_")
+        .replace("\r", "_")
+        .replace("\n", "_")
+    )
     response["Content-Disposition"] = f'attachment; filename="{safe_filename}"'
     response["x-minimum"] = settings.NB_MINIMUM_VERSION
     if status == 206:

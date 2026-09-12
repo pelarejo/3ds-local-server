@@ -9,7 +9,9 @@ U16_VALIDATORS = [MinValueValidator(0), MaxValueValidator(65535)]
 class Category(models.Model):
     """Top-level storefront section identified by a stable protocol ID."""
 
-    protocol_id = models.PositiveSmallIntegerField(unique=True, validators=U8_VALIDATORS)
+    protocol_id = models.PositiveSmallIntegerField(
+        unique=True, validators=U8_VALIDATORS
+    )
     slug = models.SlugField(unique=True)
     display_name = models.CharField(max_length=128)
     description = models.TextField(blank=True)
@@ -26,7 +28,9 @@ class Category(models.Model):
 class Subcategory(models.Model):
     """Region or grouping nested beneath a catalog category."""
 
-    category = models.ForeignKey(Category, related_name="subcategories", on_delete=models.CASCADE)
+    category = models.ForeignKey(
+        Category, related_name="subcategories", on_delete=models.CASCADE
+    )
     protocol_id = models.PositiveSmallIntegerField(validators=U8_VALIDATORS)
     slug = models.SlugField()
     display_name = models.CharField(max_length=128)
@@ -36,8 +40,13 @@ class Subcategory(models.Model):
     class Meta:
         ordering = ("ordering", "protocol_id")
         constraints = [
-            models.UniqueConstraint(fields=("category", "protocol_id"), name="unique_subcategory_protocol_id"),
-            models.UniqueConstraint(fields=("category", "slug"), name="unique_subcategory_slug"),
+            models.UniqueConstraint(
+                fields=("category", "protocol_id"),
+                name="unique_subcategory_protocol_id",
+            ),
+            models.UniqueConstraint(
+                fields=("category", "slug"), name="unique_subcategory_slug"
+            ),
         ]
 
     def __str__(self) -> str:
@@ -51,7 +60,11 @@ class Title(models.Model):
     title_id = models.CharField(
         max_length=16,
         unique=True,
-        validators=[RegexValidator(r"\A[0-9A-Fa-f]{16}\Z", "Enter exactly 16 hexadecimal digits.")],
+        validators=[
+            RegexValidator(
+                r"\A[0-9A-Fa-f]{16}\Z", "Enter exactly 16 hexadecimal digits."
+            )
+        ],
         help_text="16 hexadecimal digit Nintendo title ID",
     )
     name = models.CharField(max_length=255)
@@ -69,8 +82,12 @@ class Title(models.Model):
     listed = models.BooleanField(default=True)
     seed = models.BinaryField(max_length=16, default=bytes, blank=True)
     file_checksum = models.BinaryField(max_length=32, default=bytes, blank=True)
-    category = models.ForeignKey(Category, related_name="titles", on_delete=models.PROTECT)
-    subcategory = models.ForeignKey(Subcategory, related_name="titles", on_delete=models.PROTECT)
+    category = models.ForeignKey(
+        Category, related_name="titles", on_delete=models.PROTECT
+    )
+    subcategory = models.ForeignKey(
+        Subcategory, related_name="titles", on_delete=models.PROTECT
+    )
     added_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -82,13 +99,33 @@ class Title(models.Model):
 
     def clean(self) -> None:
         super().clean()
-        if self.subcategory_id and self.category_id and self.subcategory.category_id != self.category_id:
-            raise ValidationError({"subcategory": "The subcategory must belong to the selected category."})
+        if (
+            self.subcategory_id
+            and self.category_id
+            and self.subcategory.category_id != self.category_id
+        ):
+            raise ValidationError(
+                {"subcategory": "The subcategory must belong to the selected category."}
+            )
         names = self.alternative_names or []
-        if not isinstance(names, list) or any(not isinstance(name, str) or not name for name in names):
-            raise ValidationError({"alternative_names": "Alternative names must be a list of non-empty strings."})
+        if not isinstance(names, list) or any(
+            not isinstance(name, str) or not name for name in names
+        ):
+            raise ValidationError(
+                {
+                    "alternative_names": (
+                        "Alternative names must be a list of non-empty strings."
+                    )
+                }
+            )
         if names and self.preferred_alternative_index >= len(names):
-            raise ValidationError({"preferred_alternative_index": "Index is outside the alternative names list."})
+            raise ValidationError(
+                {
+                    "preferred_alternative_index": (
+                        "Index is outside the alternative names list."
+                    )
+                }
+            )
 
     @property
     def title_id_int(self) -> int:

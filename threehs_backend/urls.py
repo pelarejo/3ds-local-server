@@ -1,4 +1,5 @@
 """URL configuration for the 3HS backend."""
+
 from django.contrib import admin
 from django.urls import URLPattern, URLResolver, include, path
 

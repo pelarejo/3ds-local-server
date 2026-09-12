@@ -16,12 +16,21 @@ class CatalogSeedTests(TestCase):
 
         first_output = StringIO()
         call_command("seed_catalog", stdout=first_output)
-        first_pks = list(Category.objects.order_by("protocol_id").values_list("pk", flat=True))
+        first_pks = list(
+            Category.objects.order_by("protocol_id").values_list("pk", flat=True)
+        )
         call_command("seed_catalog", stdout=StringIO())
 
         self.assertEqual(Category.objects.count(), 3)
         self.assertEqual(Subcategory.objects.count(), 12)
         self.assertEqual(Category.objects.get(protocol_id=1).display_name, "Games")
-        self.assertEqual(first_pks, list(Category.objects.order_by("protocol_id").values_list("pk", flat=True)))
-        self.assertIn("0 categories and 0 subcategories created", first_output.getvalue())
-        self.assertIn("3 categories and 12 subcategories created", initial_output.getvalue())
+        self.assertEqual(
+            first_pks,
+            list(Category.objects.order_by("protocol_id").values_list("pk", flat=True)),
+        )
+        self.assertIn(
+            "0 categories and 0 subcategories created", first_output.getvalue()
+        )
+        self.assertIn(
+            "3 categories and 12 subcategories created", initial_output.getvalue()
+        )

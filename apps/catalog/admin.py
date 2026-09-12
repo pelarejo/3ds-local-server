@@ -22,6 +22,14 @@ class SubcategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Title)
 class TitleAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "title_id", "category", "subcategory", "region", "listed")
+    list_display = (
+        "id",
+        "name",
+        "title_id",
+        "category",
+        "subcategory",
+        "region",
+        "listed",
+    )
     list_filter = ("listed", "category", "subcategory", "region")
     search_fields = ("name", "title_id", "product_code")

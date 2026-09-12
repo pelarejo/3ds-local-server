@@ -17,8 +17,15 @@ def header_auth_required(namespace: ResultNamespace) -> Callable:
                 password=request.headers.get("X-Auth-Password"),
             )
             if user is None or not user.is_active:
-                return result_response(namespace, ResultReason.UNAUTHORIZED, "Invalid username or password.", status=401)
+                return result_response(
+                    namespace,
+                    ResultReason.UNAUTHORIZED,
+                    "Invalid username or password.",
+                    status=401,
+                )
             request.user = user
             return view(request, *args, **kwargs)
+
         return wrapped
+
     return decorator

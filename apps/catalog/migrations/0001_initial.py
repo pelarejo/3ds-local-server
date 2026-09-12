@@ -9,75 +9,176 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Category',
+            name="Category",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('protocol_id', models.PositiveSmallIntegerField(unique=True, validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(255)])),
-                ('slug', models.SlugField(unique=True)),
-                ('display_name', models.CharField(max_length=128)),
-                ('description', models.TextField(blank=True)),
-                ('priority', models.PositiveSmallIntegerField(default=0, validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(255)])),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "protocol_id",
+                    models.PositiveSmallIntegerField(
+                        unique=True,
+                        validators=[
+                            django.core.validators.MinValueValidator(0),
+                            django.core.validators.MaxValueValidator(255),
+                        ],
+                    ),
+                ),
+                ("slug", models.SlugField(unique=True)),
+                ("display_name", models.CharField(max_length=128)),
+                ("description", models.TextField(blank=True)),
+                (
+                    "priority",
+                    models.PositiveSmallIntegerField(
+                        default=0,
+                        validators=[
+                            django.core.validators.MinValueValidator(0),
+                            django.core.validators.MaxValueValidator(255),
+                        ],
+                    ),
+                ),
             ],
             options={
-                'verbose_name_plural': 'categories',
-                'ordering': ('priority', 'protocol_id'),
+                "verbose_name_plural": "categories",
+                "ordering": ("priority", "protocol_id"),
             },
         ),
         migrations.CreateModel(
-            name='Subcategory',
+            name="Subcategory",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('protocol_id', models.PositiveSmallIntegerField(validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(255)])),
-                ('slug', models.SlugField()),
-                ('display_name', models.CharField(max_length=128)),
-                ('description', models.TextField(blank=True)),
-                ('ordering', models.PositiveSmallIntegerField(default=0)),
-                ('category', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='subcategories', to='catalog.category')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "protocol_id",
+                    models.PositiveSmallIntegerField(
+                        validators=[
+                            django.core.validators.MinValueValidator(0),
+                            django.core.validators.MaxValueValidator(255),
+                        ]
+                    ),
+                ),
+                ("slug", models.SlugField()),
+                ("display_name", models.CharField(max_length=128)),
+                ("description", models.TextField(blank=True)),
+                ("ordering", models.PositiveSmallIntegerField(default=0)),
+                (
+                    "category",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="subcategories",
+                        to="catalog.category",
+                    ),
+                ),
             ],
             options={
-                'ordering': ('ordering', 'protocol_id'),
+                "ordering": ("ordering", "protocol_id"),
             },
         ),
         migrations.CreateModel(
-            name='Title',
+            name="Title",
             fields=[
-                ('id', models.AutoField(primary_key=True, serialize=False)),
-                ('title_id', models.CharField(help_text='16 hexadecimal digit Nintendo title ID', max_length=16, unique=True, validators=[django.core.validators.RegexValidator('\\A[0-9A-Fa-f]{16}\\Z', 'Enter exactly 16 hexadecimal digits.')])),
-                ('name', models.CharField(max_length=255)),
-                ('alternative_name', models.CharField(blank=True, max_length=255)),
-                ('alternative_names', models.JSONField(blank=True, default=list)),
-                ('preferred_alternative_index', models.PositiveIntegerField(default=0)),
-                ('product_code', models.CharField(blank=True, max_length=32)),
-                ('region', models.CharField(max_length=64)),
-                ('description', models.TextField(blank=True)),
-                ('filename', models.CharField(max_length=255)),
-                ('version', models.PositiveSmallIntegerField(default=0, validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(65535)])),
-                ('content_type', models.PositiveSmallIntegerField(default=0, validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(255)])),
-                ('flags', models.PositiveBigIntegerField(default=0)),
-                ('download_count', models.PositiveBigIntegerField(default=0)),
-                ('listed', models.BooleanField(default=True)),
-                ('seed', models.BinaryField(blank=True, default=bytes, max_length=16)),
-                ('file_checksum', models.BinaryField(blank=True, default=bytes, max_length=32)),
-                ('added_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('category', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='titles', to='catalog.category')),
-                ('subcategory', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='titles', to='catalog.subcategory')),
+                ("id", models.AutoField(primary_key=True, serialize=False)),
+                (
+                    "title_id",
+                    models.CharField(
+                        help_text="16 hexadecimal digit Nintendo title ID",
+                        max_length=16,
+                        unique=True,
+                        validators=[
+                            django.core.validators.RegexValidator(
+                                "\\A[0-9A-Fa-f]{16}\\Z",
+                                "Enter exactly 16 hexadecimal digits.",
+                            )
+                        ],
+                    ),
+                ),
+                ("name", models.CharField(max_length=255)),
+                ("alternative_name", models.CharField(blank=True, max_length=255)),
+                ("alternative_names", models.JSONField(blank=True, default=list)),
+                ("preferred_alternative_index", models.PositiveIntegerField(default=0)),
+                ("product_code", models.CharField(blank=True, max_length=32)),
+                ("region", models.CharField(max_length=64)),
+                ("description", models.TextField(blank=True)),
+                ("filename", models.CharField(max_length=255)),
+                (
+                    "version",
+                    models.PositiveSmallIntegerField(
+                        default=0,
+                        validators=[
+                            django.core.validators.MinValueValidator(0),
+                            django.core.validators.MaxValueValidator(65535),
+                        ],
+                    ),
+                ),
+                (
+                    "content_type",
+                    models.PositiveSmallIntegerField(
+                        default=0,
+                        validators=[
+                            django.core.validators.MinValueValidator(0),
+                            django.core.validators.MaxValueValidator(255),
+                        ],
+                    ),
+                ),
+                ("flags", models.PositiveBigIntegerField(default=0)),
+                ("download_count", models.PositiveBigIntegerField(default=0)),
+                ("listed", models.BooleanField(default=True)),
+                ("seed", models.BinaryField(blank=True, default=bytes, max_length=16)),
+                (
+                    "file_checksum",
+                    models.BinaryField(blank=True, default=bytes, max_length=32),
+                ),
+                ("added_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "category",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="titles",
+                        to="catalog.category",
+                    ),
+                ),
+                (
+                    "subcategory",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="titles",
+                        to="catalog.subcategory",
+                    ),
+                ),
             ],
             options={
-                'ordering': ('id',),
+                "ordering": ("id",),
             },
         ),
         migrations.AddConstraint(
-            model_name='subcategory',
-            constraint=models.UniqueConstraint(fields=('category', 'protocol_id'), name='unique_subcategory_protocol_id'),
+            model_name="subcategory",
+            constraint=models.UniqueConstraint(
+                fields=("category", "protocol_id"),
+                name="unique_subcategory_protocol_id",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='subcategory',
-            constraint=models.UniqueConstraint(fields=('category', 'slug'), name='unique_subcategory_slug'),
+            model_name="subcategory",
+            constraint=models.UniqueConstraint(
+                fields=("category", "slug"), name="unique_subcategory_slug"
+            ),
         ),
     ]
