@@ -1,29 +1,38 @@
 from collections.abc import Callable
 from functools import wraps
 
-from django.contrib.auth import authenticate
 from django.http import HttpRequest, HttpResponse
 
 from threehs_backend.nb import ResultNamespace, ResultReason, result_response
+
+from .models import HSAPIToken
 
 
 def header_auth_required(namespace: ResultNamespace) -> Callable:
     def decorator(view: Callable) -> Callable:
         @wraps(view)
         def wrapped(request: HttpRequest, *args, **kwargs) -> HttpResponse:
-            user = authenticate(
-                request,
-                username=request.headers.get("X-Auth-User"),
-                password=request.headers.get("X-Auth-Password"),
+            username = request.headers.get("X-Auth-User", "")
+            raw_token = request.headers.get("X-Auth-Password", "")
+            token_hash = HSAPIToken.hash_token(raw_token)
+            token = (
+                HSAPIToken.objects.select_related("user")
+                .filter(
+                    token_hash=token_hash,
+                    revoked_at__isnull=True,
+                    user__username=username,
+                    user__is_active=True,
+                )
+                .first()
             )
-            if user is None or not user.is_active:
+            if token is None:
                 return result_response(
                     namespace,
                     ResultReason.UNAUTHORIZED,
-                    "Invalid username or password.",
+                    "Invalid username or API token.",
                     status=401,
                 )
-            request.user = user
+            request.user = token.user
             return view(request, *args, **kwargs)
 
         return wrapped

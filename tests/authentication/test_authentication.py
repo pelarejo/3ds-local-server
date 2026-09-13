@@ -1,9 +1,29 @@
 import struct
+from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
+
+from apps.authentication.models import HSAPIToken
 
 
 class AuthenticationRouteTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="client", password="account-password"
+        )
+        self.token, self.raw_token = HSAPIToken.issue(
+            user=self.user, name="Living-room console"
+        )
+
+    def auth(self, username: str = "client", token: str | None = None) -> dict:
+        return {
+            "HTTP_X_AUTH_USER": username,
+            "HTTP_X_AUTH_PASSWORD": token or self.raw_token,
+        }
+
     def test_auth_failure_is_binary_result(self):
         response = self.client.get("/nbapi/title-index")
         self.assertEqual(response.status_code, 401)
@@ -11,3 +31,79 @@ class AuthenticationRouteTests(TestCase):
         self.assertEqual(
             struct.unpack_from("<I", response.content, 16)[0], (7 << 16) | 1
         )
+
+    def test_matching_username_and_token_authenticate_as_owner(self):
+        response = self.client.get("/nbapi/title-index", **self.auth())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content[:4], b"TIDX")
+
+    def test_wrong_username_token_and_account_password_are_rejected(self):
+        attempts = (
+            self.auth(username="someone-else"),
+            self.auth(token="hsapi_not-the-token"),
+            self.auth(token="account-password"),
+        )
+        for headers in attempts:
+            with self.subTest(headers=headers):
+                response = self.client.get("/nbapi/title-index", **headers)
+                self.assertEqual(response.status_code, 401)
+                self.assertEqual(response.content[:4], b"RSLT")
+
+    def test_inactive_user_is_rejected(self):
+        self.user.is_active = False
+        self.user.save(update_fields=("is_active",))
+        response = self.client.get("/nbapi/title-index", **self.auth())
+        self.assertEqual((response.status_code, response.content[:4]), (401, b"RSLT"))
+
+    def test_revoked_token_is_rejected(self):
+        self.token.revoked_at = timezone.now()
+        self.token.save(update_fields=("revoked_at",))
+        response = self.client.get("/nbapi/title-index", **self.auth())
+        self.assertEqual((response.status_code, response.content[:4]), (401, b"RSLT"))
+
+    def test_token_is_hashed_and_only_safe_prefix_is_stored(self):
+        self.token.refresh_from_db()
+        self.assertNotEqual(self.token.token_hash, self.raw_token)
+        self.assertEqual(self.token.token_hash, HSAPIToken.hash_token(self.raw_token))
+        self.assertEqual(
+            self.token.token_prefix,
+            self.raw_token[: HSAPIToken.DISPLAY_PREFIX_LENGTH],
+        )
+        self.assertNotIn(self.raw_token, str(self.token.__dict__))
+
+
+class HSAPITokenAdminTests(TestCase):
+    def setUp(self):
+        self.admin_user = get_user_model().objects.create_superuser(
+            username="admin", password="password", email="admin@example.com"
+        )
+        self.other_user = get_user_model().objects.create_user(username="other")
+        self.client.force_login(self.admin_user)
+
+    @patch(
+        "apps.authentication.models.secrets.token_urlsafe",
+        return_value="known-generated-secret",
+    )
+    def test_admin_assigns_owner_and_displays_raw_token_once(self, _token_urlsafe):
+        raw_token = "hsapi_known-generated-secret"
+        response = self.client.post(
+            reverse("admin:authentication_hsapitoken_add"),
+            {
+                "name": "Admin-created token",
+                "user": self.other_user.pk,
+                "_save": "Save",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        token = HSAPIToken.objects.get(name="Admin-created token")
+        self.assertEqual(token.user, self.admin_user)
+        self.assertEqual(token.token_hash, HSAPIToken.hash_token(raw_token))
+        self.assertNotEqual(token.token_hash, raw_token)
+        self.assertContains(response, raw_token)
+
+        later_response = self.client.get(
+            reverse("admin:authentication_hsapitoken_changelist")
+        )
+        self.assertNotContains(later_response, raw_token)
