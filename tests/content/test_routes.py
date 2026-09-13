@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
+from apps.authentication.models import HSAPIToken
 from apps.catalog.models import Category, Subcategory, Title
 from apps.content.models import ContentArtifact, DownloadGrant
 from seeds.catalog import seed_catalog_taxonomy
@@ -24,6 +25,7 @@ class ContentRouteTests(TestCase):
         self.user = get_user_model().objects.create_user(
             username="client", password="secret"
         )
+        _, raw_token = HSAPIToken.issue(user=self.user, name="Test client")
         category = Category.objects.get(slug="games")
         subcategory = Subcategory.objects.get(category=category, slug="north-america")
         self.title = Title.objects.create(
@@ -39,7 +41,10 @@ class ContentRouteTests(TestCase):
         self.artifact = ContentArtifact.objects.create(
             title=self.title, relative_path="download.cia", byte_size=16
         )
-        self.auth = {"HTTP_X_AUTH_USER": "client", "HTTP_X_AUTH_PASSWORD": "secret"}
+        self.auth = {
+            "HTTP_X_AUTH_USER": "client",
+            "HTTP_X_AUTH_PASSWORD": raw_token,
+        }
 
     def issue_token(self) -> str:
         response = self.client.get(f"/nbcontent/{self.title.pk}/request", **self.auth)

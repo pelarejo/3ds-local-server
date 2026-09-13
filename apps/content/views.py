@@ -15,19 +15,9 @@ from threehs_backend.nb import (
 )
 
 from .models import ContentArtifact, DownloadGrant
+from .paths import resolve_content_path
 
 RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)\Z")
-
-
-def _artifact_path(artifact: ContentArtifact) -> Path:
-    root = Path(settings.CONTENT_ROOT).resolve()
-    relative = Path(artifact.relative_path)
-    if relative.is_absolute():
-        raise ValueError("absolute artifact paths are forbidden")
-    resolved = (root / relative).resolve()
-    if not resolved.is_relative_to(root):
-        raise ValueError("artifact path escapes CONTENT_ROOT")
-    return resolved
 
 
 def _file_chunks(path: Path, start: int, length: int) -> Iterator[bytes]:
@@ -71,7 +61,7 @@ def request_download(request: HttpRequest, id: int) -> HttpResponse:
         artifact = ContentArtifact.objects.select_related("title").get(
             title_id=id, enabled=True, title__listed=True
         )
-        path = _artifact_path(artifact)
+        path = resolve_content_path(artifact.relative_path)
         if not path.is_file() or path.stat().st_size != artifact.byte_size:
             raise OSError(
                 "artifact is absent or its size does not match catalog metadata"
@@ -96,7 +86,7 @@ def download(request: HttpRequest, id: int) -> HttpResponse:
         )
         if not grant.is_valid:
             raise DownloadGrant.DoesNotExist
-        path = _artifact_path(grant.artifact)
+        path = resolve_content_path(grant.artifact.relative_path)
         actual_size = path.stat().st_size
         if not path.is_file() or actual_size != grant.artifact.byte_size:
             raise OSError

@@ -9,5 +9,6 @@ urlpatterns = [
         views.titles_in_category,
         name="titles-in-category",
     ),
+    path("title/random", views.random_title, name="title-random"),
     path("title/<int:id>", views.title_detail, name="title-detail"),
 ]

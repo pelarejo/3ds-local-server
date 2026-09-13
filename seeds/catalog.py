@@ -13,6 +13,17 @@ SUBCATEGORIES = (
     (2, "europe", "Europe"),
     (3, "japan", "Japan"),
     (4, "other", "Other"),
+    (5, "china", "China"),
+    (6, "france", "France"),
+    (7, "germany", "Germany"),
+    (8, "italy", "Italy"),
+    (9, "korea", "Korea"),
+    (10, "netherlands", "Netherlands"),
+    (11, "russia", "Russia"),
+    (12, "spain", "Spain"),
+    (13, "taiwan", "Taiwan"),
+    (14, "united-kingdom", "United Kingdom"),
+    (15, "worldwide", "Worldwide"),
 )
 
 

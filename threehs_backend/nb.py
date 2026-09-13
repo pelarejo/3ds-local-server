@@ -105,11 +105,13 @@ def result_payload(
 def result_response(
     namespace: ResultNamespace, reason: ResultReason, message: str, *, status: int
 ) -> HttpResponse:
-    return HttpResponse(
+    response = HttpResponse(
         result_payload(namespace, reason, message),
         status=status,
         content_type=NB_CONTENT_TYPE,
     )
+    response["x-minimum"] = settings.NB_MINIMUM_VERSION
+    return response
 
 
 def versioned_response(
@@ -228,9 +230,7 @@ def index_payload(categories, generated_at: int) -> bytes:
     category_headers = []
     all_titles = []
     for category in categories:
-        category_titles = list(
-            category.titles.filter(listed=True).select_related("artifact")
-        )
+        category_titles = category.eligible_titles
         all_titles.extend(category_titles)
         sub_blob = Blob()
         sub_headers = []
