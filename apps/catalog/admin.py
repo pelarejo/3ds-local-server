@@ -34,6 +34,13 @@ class CategoryAdmin(admin.ModelAdmin):
 class SubcategoryAdmin(admin.ModelAdmin):
     list_display = ("display_name", "category", "slug", "protocol_id", "ordering")
     list_filter = ("category",)
+    search_fields = ("display_name", "slug", "category__display_name")
+    ordering = (
+        "category__priority",
+        "category__protocol_id",
+        "display_name",
+        "pk",
+    )
 
 
 @admin.register(Title)

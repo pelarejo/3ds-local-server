@@ -1,0 +1,41 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    &rsaquo; <a href="{% url 'admin:content_contentartifact_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    &rsaquo; Synchronize
+  </div>
+{% endblock %}
+
+{% block content %}
+  <div id="content-main">
+    <p>Scan CONTENT_ROOT recursively for CIA files and synchronize database records. Files are never modified.</p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="submit-row">
+        <button type="submit" name="mode" value="normal">Synchronize now</button>
+        <button type="submit" name="mode" value="force" class="deletelink" onclick="return confirm('Force synchronization refreshes catalog-derived title fields and artifact paths/sizes. Continue?');">Force synchronize content folder</button>
+      </div>
+    </form>
+    {% if result %}
+      <h2>Synchronization result</h2>
+      <p>
+        {{ result.scanned }} scanned;
+        {{ result.titles_created }} titles created;
+        {{ result.titles_updated }} titles updated;
+        {{ result.artifacts_created }} artifacts created;
+        {{ result.artifacts_updated }} artifacts updated;
+        {{ result.unchanged }} unchanged;
+        {{ result.skipped }} skipped.
+      </p>
+      {% if result.details %}
+        <ul>
+          {% for detail in result.details %}<li>{{ detail }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    {% endif %}
+  </div>
+{% endblock %}

@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 django = "==5.2.17"
+pyctr = "==0.7.6"
 
 [dev-packages]
 black = "==26.5.1"

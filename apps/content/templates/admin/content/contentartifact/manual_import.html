@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls i18n %}
+
+{% block extrahead %}{{ block.super }}{{ media }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+  &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+  &rsaquo; Manual import
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p>Upload a CIA and either select an existing title or enter the new title details.</p>
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="submit-row">
+      <input type="submit" value="{% translate 'Save' %}" class="default">
+    </div>
+  </form>
+</div>
+{% endblock %}

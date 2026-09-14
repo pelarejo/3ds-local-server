@@ -1,5 +1,5 @@
-from django.core.management.base import BaseCommand
 from django.apps import apps as global_apps
+from django.core.management.base import BaseCommand
 
 CATEGORIES = (
     (1, "games", "Games", 1),
@@ -28,6 +28,7 @@ SUBCATEGORIES = (
     (15, "united-kingdom", "United Kingdom"),
     (16, "worldwide", "Worldwide"),
     (17, "other", "Other"),
+    (18, "uncategorised", "Uncategorised"),
 )
 
 

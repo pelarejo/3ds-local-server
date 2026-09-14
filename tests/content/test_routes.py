@@ -1,22 +1,23 @@
 import struct
 import tempfile
 from datetime import timedelta
+from io import StringIO
 from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
 from apps.authentication.models import HSAPIToken
 from apps.catalog.models import Category, Subcategory, Title
 from apps.content.models import ContentArtifact, DownloadGrant
-from seeds.catalog import seed_catalog_taxonomy
 
 
 class ContentRouteTests(TestCase):
     def setUp(self):
-        seed_catalog_taxonomy()
+        call_command("seed_catalog", stdout=StringIO())
         self.tempdir = tempfile.TemporaryDirectory(dir=settings.BASE_DIR)
         self.addCleanup(self.tempdir.cleanup)
         self.settings_override = self.settings(CONTENT_ROOT=Path(self.tempdir.name))

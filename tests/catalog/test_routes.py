@@ -1,21 +1,22 @@
 import struct
+from io import StringIO
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import resolve, reverse
 
 from apps.authentication.models import HSAPIToken
 from apps.catalog.models import Category, Subcategory, Title
 from apps.content.models import ContentArtifact
-from seeds.catalog import seed_catalog_taxonomy
 from threels_server.nb import ResultNamespace, ResultReason, title_payload
 
 
 class CatalogRouteTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        seed_catalog_taxonomy()
+        call_command("seed_catalog", stdout=StringIO())
         cls.user = get_user_model().objects.create_user(
             username="client", password="secret"
         )
@@ -68,7 +69,15 @@ class CatalogRouteTests(TestCase):
         self.assertEqual(
             values[:5], (int(self.title.title_id, 16), 1234, 5, 9, self.title.pk)
         )
-        self.assertEqual(values[8:12], (7, 1, 1, 1))
+        self.assertEqual(
+            values[8:12],
+            (
+                7,
+                1,
+                self.category.protocol_id,
+                self.subcategory.protocol_id,
+            ),
+        )
         blob = response.content[84:]
         self.assertEqual(blob[values[5] :].split(b"\0", 1)[0], b"Test Game")
 
@@ -144,7 +153,9 @@ class CatalogRouteTests(TestCase):
         _, _, category_count, category_size, _ = struct.unpack_from(
             "<4sIIII", outer_blob, category_offset
         )
-        self.assertEqual((category_count, category_size), (3, 56))
+        self.assertEqual(
+            (category_count, category_size), (Category.objects.count(), 56)
+        )
 
     def test_unknown_taxonomy_returns_result(self):
         response = self.client.get("/nbapi/title/category/nope/nope", **self.auth)
@@ -155,7 +166,7 @@ class CatalogRouteTests(TestCase):
 class RandomTitleRouteTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        seed_catalog_taxonomy()
+        call_command("seed_catalog", stdout=StringIO())
         cls.user = get_user_model().objects.create_user(username="random-client")
         _, raw_token = HSAPIToken.issue(user=cls.user, name="Random client")
         cls.auth = {

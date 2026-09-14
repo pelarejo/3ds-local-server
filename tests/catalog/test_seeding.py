@@ -21,8 +21,8 @@ class CatalogSeedTests(TestCase):
         )
         call_command("seed_catalog", stdout=StringIO())
 
-        self.assertEqual(Category.objects.count(), 3)
-        self.assertEqual(Subcategory.objects.count(), 45)
+        self.assertEqual(Category.objects.count(), 6)
+        self.assertEqual(Subcategory.objects.count(), 108)
         self.assertEqual(Category.objects.get(protocol_id=1).display_name, "Games")
         self.assertEqual(
             first_pks,
@@ -32,5 +32,13 @@ class CatalogSeedTests(TestCase):
             "0 categories and 0 subcategories created", first_output.getvalue()
         )
         self.assertIn(
-            "3 categories and 45 subcategories created", initial_output.getvalue()
+            "6 categories and 108 subcategories created", initial_output.getvalue()
+        )
+        self.assertEqual(
+            Subcategory.objects.filter(
+                protocol_id=18,
+                slug="uncategorised",
+                display_name="Uncategorised",
+            ).count(),
+            6,
         )
