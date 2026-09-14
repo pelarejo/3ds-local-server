@@ -5,7 +5,7 @@ from django.http import HttpRequest, HttpResponse
 from django.utils import timezone
 
 from apps.authentication.views import header_auth_required
-from threehs_backend.nb import (
+from threels_server.nb import (
     ResultNamespace,
     ResultReason,
     index_payload,

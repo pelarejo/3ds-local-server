@@ -1,4 +1,11 @@
 {
+    "black-formatter.importStrategy": "fromEnvironment",
+    "isort.importStrategy": "fromEnvironment",
+    "flake8.importStrategy": "fromEnvironment",
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true
+    },
     "peacock.color": "green",
     "workbench.colorCustomizations": {
         "sash.hoverBorder": "#00b300",
@@ -10,5 +17,5 @@
         "statusBarItem.remoteBackground": "#9f9fff",
         "statusBarItem.remoteForeground": "#e7e7e7",
         "tab.activeBorder": "#00b300"
-    }
+    },
 }

@@ -6,7 +6,7 @@ from django.conf import settings
 from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
 
 from apps.authentication.views import header_auth_required
-from threehs_backend.nb import (
+from threels_server.nb import (
     ResultNamespace,
     ResultReason,
     result_response,

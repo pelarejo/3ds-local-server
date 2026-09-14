@@ -14,7 +14,7 @@ class User(AbstractUser):
 
 
 class HSAPIToken(models.Model):
-    """Revocable API credential used by a 3HS client on behalf of a user."""
+    """Revocable API credential used by a 3LS client on behalf of a user."""
 
     TOKEN_PREFIX = "hsapi_"
     DISPLAY_PREFIX_LENGTH = 14

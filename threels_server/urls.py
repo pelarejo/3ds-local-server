@@ -1,4 +1,4 @@
-"""URL configuration for the 3HS backend."""
+"""URL configuration for the 3LS server."""
 
 from django.contrib import admin
 from django.urls import URLPattern, URLResolver, include, path

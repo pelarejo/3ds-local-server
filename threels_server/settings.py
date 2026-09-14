@@ -1,4 +1,4 @@
-"""Django settings for the 3HS backend."""
+"""Django settings for the 3LS server."""
 
 import os
 from datetime import timedelta
@@ -38,7 +38,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "threehs_backend.urls"
+ROOT_URLCONF = "threels_server.urls"
 
 TEMPLATES = [
     {
@@ -55,7 +55,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "threehs_backend.wsgi.application"
+WSGI_APPLICATION = "threels_server.wsgi.application"
 
 DATABASES = {
     "default": {

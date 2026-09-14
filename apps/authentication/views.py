@@ -3,7 +3,7 @@ from functools import wraps
 
 from django.http import HttpRequest, HttpResponse
 
-from threehs_backend.nb import ResultNamespace, ResultReason, result_response
+from threels_server.nb import ResultNamespace, ResultReason, result_response
 
 from .models import HSAPIToken
 

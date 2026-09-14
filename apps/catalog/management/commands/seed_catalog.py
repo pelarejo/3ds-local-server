@@ -4,7 +4,7 @@ from seeds.catalog import seed_catalog_taxonomy
 
 
 class Command(BaseCommand):
-    help = "Idempotently create or refresh the stable 3HS catalog taxonomy."
+    help = "Idempotently create or refresh the stable 3LS catalog taxonomy."
 
     def handle(self, *args, **options):
         categories_created, subcategories_created = seed_catalog_taxonomy()

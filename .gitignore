@@ -8,4 +8,10 @@ __pycache__/
 .ruff_cache/
 .autoenv.zsh
 .DS_Store
-content/*
+
+./content/
+*.cia
+*.3ds
+*.tik
+*.cert
+*.seed

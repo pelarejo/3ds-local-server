@@ -9,7 +9,7 @@ from apps.authentication.models import HSAPIToken
 from apps.catalog.models import Category, Subcategory, Title
 from apps.content.models import ContentArtifact
 from seeds.catalog import seed_catalog_taxonomy
-from threehs_backend.nb import ResultNamespace, ResultReason, title_payload
+from threels_server.nb import ResultNamespace, ResultReason, title_payload
 
 
 class CatalogRouteTests(TestCase):

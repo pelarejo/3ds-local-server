@@ -6,4 +6,4 @@ exclude =
     .venv,
     */migrations/*
 per-file-ignores =
-    threehs_backend/settings.py: E501
+    threels_server/settings.py: E501
