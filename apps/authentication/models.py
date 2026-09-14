@@ -16,7 +16,9 @@ class User(AbstractUser):
 class HSAPIToken(models.Model):
     """Revocable API credential used by a 3LS client on behalf of a user."""
 
-    TOKEN_PREFIX = "hsapi_"
+    TOKEN_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+    TOKEN_LENGTH = 20
+    TOKEN_GROUP_LENGTH = 4
     DISPLAY_PREFIX_LENGTH = 14
 
     user = models.ForeignKey(
@@ -38,21 +40,44 @@ class HSAPIToken(models.Model):
 
     @classmethod
     def generate_raw_token(cls) -> str:
-        """Generate a cryptographically secure, URL-safe API token."""
-        return f"{cls.TOKEN_PREFIX}{secrets.token_urlsafe(32)}"
+        """Generate a formatted API token with 100 bits of entropy."""
+        canonical = "".join(
+            secrets.choice(cls.TOKEN_ALPHABET) for _ in range(cls.TOKEN_LENGTH)
+        )
+        return cls.format_token(canonical)
 
-    @staticmethod
-    def hash_token(raw_token: str) -> str:
+    @classmethod
+    def normalize_token(cls, raw_token: str) -> str:
+        """Return the canonical token form or raise ValueError when invalid."""
+        canonical = raw_token.replace("-", "").upper()
+        if len(canonical) != cls.TOKEN_LENGTH or any(
+            character not in cls.TOKEN_ALPHABET for character in canonical
+        ):
+            raise ValueError("Invalid API token format.")
+        return canonical
+
+    @classmethod
+    def format_token(cls, raw_token: str) -> str:
+        """Return a canonical token grouped for human-readable display."""
+        canonical = cls.normalize_token(raw_token)
+        return "-".join(
+            canonical[index : index + cls.TOKEN_GROUP_LENGTH]
+            for index in range(0, cls.TOKEN_LENGTH, cls.TOKEN_GROUP_LENGTH)
+        )
+
+    @classmethod
+    def hash_token(cls, raw_token: str) -> str:
         """Return a keyed digest suitable for storage and indexed lookup."""
+        canonical = cls.normalize_token(raw_token)
         return hmac.new(
-            settings.SECRET_KEY.encode(), raw_token.encode(), hashlib.sha256
+            settings.SECRET_KEY.encode(), canonical.encode(), hashlib.sha256
         ).hexdigest()
 
     def set_token(self, raw_token: str | None = None) -> str:
         """Set a newly generated credential and return its one-time raw value."""
-        raw_token = raw_token or self.generate_raw_token()
+        raw_token = raw_token if raw_token is not None else self.generate_raw_token()
         self.token_hash = self.hash_token(raw_token)
-        self.token_prefix = raw_token[: self.DISPLAY_PREFIX_LENGTH]
+        self.token_prefix = self.format_token(raw_token)[: self.DISPLAY_PREFIX_LENGTH]
         return raw_token
 
     @classmethod

@@ -21,7 +21,7 @@ class AuthenticationRouteTests(TestCase):
     def auth(self, username: str = "client", token: str | None = None) -> dict:
         return {
             "HTTP_X_AUTH_USER": username,
-            "HTTP_X_AUTH_PASSWORD": token or self.raw_token,
+            "HTTP_X_AUTH_PASSWORD": self.raw_token if token is None else token,
         }
 
     def test_auth_failure_is_binary_result(self):
@@ -37,11 +37,24 @@ class AuthenticationRouteTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content[:4], b"TIDX")
 
+    def test_token_authentication_is_case_insensitive_and_hyphens_are_optional(self):
+        variants = (self.raw_token.lower(), self.raw_token.replace("-", ""))
+        for token in variants:
+            with self.subTest(token=token):
+                response = self.client.get(
+                    "/nbapi/title-index", **self.auth(token=token)
+                )
+                self.assertEqual(
+                    (response.status_code, response.content[:4]), (200, b"TIDX")
+                )
+
     def test_wrong_username_token_and_account_password_are_rejected(self):
         attempts = (
             self.auth(username="someone-else"),
-            self.auth(token="hsapi_not-the-token"),
+            self.auth(token="7K3M-P9RX-4D2W-H8JF-Q6TZ"),
             self.auth(token="account-password"),
+            self.auth(token=""),
+            self.auth(token="IIII-IIII-IIII-IIII-IIII"),
         )
         for headers in attempts:
             with self.subTest(headers=headers):
@@ -71,6 +84,11 @@ class AuthenticationRouteTests(TestCase):
         )
         self.assertNotIn(self.raw_token, str(self.token.__dict__))
 
+    def test_generated_token_is_grouped_crockford_base32_with_100_bits(self):
+        groups = self.raw_token.split("-")
+        self.assertEqual([len(group) for group in groups], [4, 4, 4, 4, 4])
+        self.assertTrue(set("".join(groups)).issubset(set(HSAPIToken.TOKEN_ALPHABET)))
+
 
 class HSAPITokenAdminTests(TestCase):
     def setUp(self):
@@ -80,12 +98,13 @@ class HSAPITokenAdminTests(TestCase):
         self.other_user = get_user_model().objects.create_user(username="other")
         self.client.force_login(self.admin_user)
 
-    @patch(
-        "apps.authentication.models.secrets.token_urlsafe",
-        return_value="known-generated-secret",
+    @patch.object(
+        HSAPIToken,
+        "generate_raw_token",
+        return_value="7K3M-P9RX-4D2W-H8JF-Q6TY",
     )
-    def test_admin_assigns_owner_and_displays_raw_token_once(self, _token_urlsafe):
-        raw_token = "hsapi_known-generated-secret"
+    def test_admin_assigns_owner_and_displays_raw_token_once(self, _generate_token):
+        raw_token = "7K3M-P9RX-4D2W-H8JF-Q6TY"
         response = self.client.post(
             reverse("admin:authentication_hsapitoken_add"),
             {

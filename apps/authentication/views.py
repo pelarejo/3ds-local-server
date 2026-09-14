@@ -14,17 +14,21 @@ def header_auth_required(namespace: ResultNamespace) -> Callable:
         def wrapped(request: HttpRequest, *args, **kwargs) -> HttpResponse:
             username = request.headers.get("X-Auth-User", "")
             raw_token = request.headers.get("X-Auth-Password", "")
-            token_hash = HSAPIToken.hash_token(raw_token)
-            token = (
-                HSAPIToken.objects.select_related("user")
-                .filter(
-                    token_hash=token_hash,
-                    revoked_at__isnull=True,
-                    user__username=username,
-                    user__is_active=True,
+            try:
+                token_hash = HSAPIToken.hash_token(raw_token)
+            except ValueError:
+                token = None
+            else:
+                token = (
+                    HSAPIToken.objects.select_related("user")
+                    .filter(
+                        token_hash=token_hash,
+                        revoked_at__isnull=True,
+                        user__username=username,
+                        user__is_active=True,
+                    )
+                    .first()
                 )
-                .first()
-            )
             if token is None:
                 return result_response(
                     namespace,
