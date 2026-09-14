@@ -22,8 +22,11 @@ class Command(BaseCommand):
         parser.add_argument(
             "xml_path",
             nargs="?",
-            default=str(settings.BASE_DIR / "3dsreleases.xml"),
-            help="XML file inside the backend repository (default: 3dsreleases.xml).",
+            default=str(settings.SYSTEM_ROOT / "3dsreleases.xml"),
+            help=(
+                "XML file inside the backend repository "
+                "(default: system/3dsreleases.xml)."
+            ),
         )
 
     def handle(self, *args, **options):

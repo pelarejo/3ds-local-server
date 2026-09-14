@@ -161,12 +161,14 @@ class ImportReleasesTests(TestCase):
             call_command("import_releases", str(path))
         self.assertFalse(CatalogEntry.objects.exists())
 
-    def test_default_path_points_to_repository_xml(self):
+    def test_default_path_uses_system_root(self):
         from apps.catalog.management.commands.import_releases import Command
 
-        parser = Command().create_parser("manage.py", "import_releases")
-        options = vars(parser.parse_args([]))
+        system_root = Path(self.tempdir.name) / "system"
+        with self.settings(SYSTEM_ROOT=system_root):
+            parser = Command().create_parser("manage.py", "import_releases")
+            options = vars(parser.parse_args([]))
         self.assertEqual(
             Path(options["xml_path"]).resolve(),
-            (settings.BASE_DIR / "3dsreleases.xml").resolve(),
+            (system_root / "3dsreleases.xml").resolve(),
         )

@@ -9,7 +9,8 @@ __pycache__/
 .autoenv.zsh
 .DS_Store
 
-./content/
+content/
+system/
 *.cia
 *.3ds
 *.tik

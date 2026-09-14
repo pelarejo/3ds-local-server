@@ -5,6 +5,7 @@ from datetime import timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+SYSTEM_ROOT = BASE_DIR / "system"
 
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY", "django-insecure-development-only-change-me"
