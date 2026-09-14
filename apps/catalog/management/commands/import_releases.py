@@ -1,4 +1,4 @@
-"""Import 3DS release metadata into the local catalog."""
+"""Import provider metadata into the staging catalog."""
 
 from pathlib import Path
 from xml.etree import ElementTree
@@ -8,30 +8,15 @@ from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from apps.catalog.models import Category, Subcategory, Title
-from seeds.catalog import seed_catalog_taxonomy
+from apps.catalog.models import CatalogEntry
 
-REGION_SLUGS = {
-    "USA": "north-america",
-    "EUR": "europe",
-    "JPN": "japan",
-    "CHN": "china",
-    "FRA": "france",
-    "GER": "germany",
-    "ITA": "italy",
-    "KOR": "korea",
-    "NLD": "netherlands",
-    "RUS": "russia",
-    "SPA": "spain",
-    "TWN": "taiwan",
-    "UKV": "united-kingdom",
-    "WLD": "worldwide",
-}
-REQUIRED_FIELDS = ("titleid", "name", "serial", "region", "filename")
+SOURCE = "3dsdb"
+COMMON_FIELDS = {"id", "titleid", "name", "serial", "region", "publisher"}
+REQUIRED_FIELDS = ("id", "titleid", "name", "serial", "region")
 
 
 class Command(BaseCommand):
-    help = "Idempotently import title metadata from a 3dsreleases XML file."
+    help = "Idempotently import provider XML metadata into the staging catalog."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -55,13 +40,6 @@ class Command(BaseCommand):
         created = updated = skipped = 0
         try:
             with transaction.atomic():
-                seed_catalog_taxonomy()
-                games = Category.objects.get(slug="games")
-                subcategories = {
-                    subcategory.slug: subcategory
-                    for subcategory in Subcategory.objects.filter(category=games)
-                }
-
                 for index, element in enumerate(self._releases(path), start=1):
                     values = {
                         child.tag: (child.text or "").strip() for child in element
@@ -75,29 +53,30 @@ class Command(BaseCommand):
                                 f"missing required field(s): {', '.join(missing)}"
                             )
 
-                        region_code = values["region"].upper()
-                        subcategory_slug = REGION_SLUGS.get(region_code, "other")
-                        if subcategory_slug == "other":
-                            self.stderr.write(
-                                self.style.WARNING(
-                                    f"Record {index} has unexpected region "
-                                    f"'{values['region']}'; using Other."
-                                )
-                            )
                         defaults = {
                             "name": values["name"],
                             "product_code": values["serial"],
-                            "region": values["region"],
-                            "filename": values["filename"],
-                            "category": games,
-                            "subcategory": subcategories[subcategory_slug],
+                            "title_id": values["titleid"].upper(),
+                            "region": values["region"].upper(),
+                            "publisher": values.get("publisher", ""),
+                            "metadata": {
+                                key: value
+                                for key, value in values.items()
+                                if key not in COMMON_FIELDS
+                            },
                         }
-                        candidate = Title(title_id=values["titleid"], **defaults)
+                        candidate = CatalogEntry(
+                            source=SOURCE,
+                            external_id=values["id"],
+                            **defaults,
+                        )
                         candidate.full_clean(
                             validate_unique=False, validate_constraints=False
                         )
-                        _, was_created = Title.objects.update_or_create(
-                            title_id=values["titleid"], defaults=defaults
+                        _, was_created = CatalogEntry.objects.update_or_create(
+                            source=SOURCE,
+                            external_id=values["id"],
+                            defaults=defaults,
                         )
                     except (KeyError, ValidationError, ValueError) as error:
                         skipped += 1

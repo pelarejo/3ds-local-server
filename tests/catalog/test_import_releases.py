@@ -6,9 +6,7 @@ from django.conf import settings
 from django.core.management import CommandError, call_command
 from django.test import TestCase
 
-from apps.catalog.models import Category, Subcategory, Title
-from apps.content.models import ContentArtifact
-from seeds.catalog import seed_catalog_taxonomy
+from apps.catalog.models import CatalogEntry, Category, Subcategory, Title
 
 
 class ImportReleasesTests(TestCase):
@@ -18,6 +16,7 @@ class ImportReleasesTests(TestCase):
 
     def release(self, **overrides) -> str:
         values = {
+            "id": "1",
             "titleid": "0004000000000001",
             "name": "Imported Game",
             "serial": "CTR-P-TEST",
@@ -44,53 +43,90 @@ class ImportReleasesTests(TestCase):
         call_command("import_releases", str(path), stdout=stdout, stderr=stderr)
         return stdout.getvalue(), stderr.getvalue()
 
-    def test_import_maps_supported_fields_and_games_taxonomy(self):
+    def test_import_maps_common_fields_and_preserves_provider_metadata(self):
         self.run_import(self.write_xml(self.release()))
-        title = Title.objects.get(title_id="0004000000000001")
+        entry = CatalogEntry.objects.get(source="3dsdb", external_id="1")
         self.assertEqual(
             (
-                title.name,
-                title.product_code,
-                title.region,
-                title.filename,
-                title.category.slug,
-                title.subcategory.slug,
+                entry.title_id,
+                entry.name,
+                entry.product_code,
+                entry.region,
+                entry.publisher,
             ),
             (
+                "0004000000000001",
                 "Imported Game",
                 "CTR-P-TEST",
                 "USA",
-                "imported-game",
-                "games",
-                "north-america",
+                "Ignored Publisher",
             ),
         )
-        self.assertFalse(ContentArtifact.objects.exists())
+        self.assertEqual(
+            entry.metadata,
+            {"filename": "imported-game", "trimmedsize": "123456"},
+        )
+        self.assertFalse(Title.objects.exists())
 
-    def test_unsupported_xml_fields_are_ignored(self):
-        self.run_import(self.write_xml(self.release()))
-        title = Title.objects.get()
-        self.assertEqual(title.description, "")
-        self.assertFalse(hasattr(title, "publisher"))
+    def test_import_does_not_update_an_existing_published_title(self):
+        category = Category.objects.create(
+            protocol_id=1, slug="games", display_name="Games"
+        )
+        subcategory = Subcategory.objects.create(
+            category=category,
+            protocol_id=1,
+            slug="north-america",
+            display_name="North America",
+        )
+        title = Title.objects.create(
+            title_id="0004000000000001",
+            name="Published Name",
+            region="USA",
+            filename="published.cia",
+            category=category,
+            subcategory=subcategory,
+        )
 
-    def test_last_duplicate_title_id_wins_in_xml_order(self):
+        self.run_import(self.write_xml(self.release(name="Provider Name")))
+
+        title.refresh_from_db()
+        self.assertEqual(title.name, "Published Name")
+        self.assertEqual(CatalogEntry.objects.get().name, "Provider Name")
+
+    def test_duplicate_title_ids_with_distinct_external_ids_are_retained(self):
         path = self.write_xml(
-            self.release(name="Older", serial="CTR-OLD"),
-            self.release(name="Newer", serial="CTR-NEW", filename="newer"),
+            self.release(id="1", name="Older", serial="CTR-OLD"),
+            self.release(id="2", name="Newer", serial="CTR-NEW", filename="newer"),
         )
         stdout, _ = self.run_import(path)
-        title = Title.objects.get()
         self.assertEqual(
-            (title.name, title.product_code, title.filename),
-            ("Newer", "CTR-NEW", "newer"),
+            list(
+                CatalogEntry.objects.order_by("external_id").values_list(
+                    "external_id", "title_id", "name"
+                )
+            ),
+            [
+                ("1", "0004000000000001", "Older"),
+                ("2", "0004000000000001", "Newer"),
+            ],
         )
+        self.assertIn("2 created, 0 updated, 0 skipped", stdout)
+
+    def test_last_duplicate_source_external_id_wins_in_xml_order(self):
+        path = self.write_xml(
+            self.release(id="same", name="Older"),
+            self.release(id="same", name="Newer", filename="newer"),
+        )
+        stdout, _ = self.run_import(path)
+        entry = CatalogEntry.objects.get()
+        self.assertEqual((entry.name, entry.metadata["filename"]), ("Newer", "newer"))
         self.assertIn("1 created, 1 updated, 0 skipped", stdout)
 
     def test_repeat_import_is_idempotent_and_reports_updates(self):
         path = self.write_xml(self.release())
         first_stdout, _ = self.run_import(path)
         second_stdout, _ = self.run_import(path)
-        self.assertEqual(Title.objects.count(), 1)
+        self.assertEqual(CatalogEntry.objects.count(), 1)
         self.assertIn("1 created, 0 updated, 0 skipped", first_stdout)
         self.assertIn("0 created, 1 updated, 0 skipped", second_stdout)
 
@@ -99,51 +135,16 @@ class ImportReleasesTests(TestCase):
         missing = self.release(titleid="0004000000000002", name="")
         valid = self.release(titleid="0004000000000003", name="Valid")
         stdout, stderr = self.run_import(self.write_xml(malformed, missing, valid))
-        self.assertEqual(list(Title.objects.values_list("name", flat=True)), ["Valid"])
+        self.assertEqual(
+            list(CatalogEntry.objects.values_list("name", flat=True)), ["Valid"]
+        )
         self.assertIn("1 created, 0 updated, 2 skipped", stdout)
         self.assertIn("Skipping record 1", stderr)
         self.assertIn("Skipping record 2", stderr)
 
-    def test_xml_specific_regions_are_seeded_and_mapped(self):
-        regions = {
-            "CHN": "china",
-            "FRA": "france",
-            "GER": "germany",
-            "ITA": "italy",
-            "KOR": "korea",
-            "NLD": "netherlands",
-            "RUS": "russia",
-            "SPA": "spain",
-            "TWN": "taiwan",
-            "UKV": "united-kingdom",
-            "WLD": "worldwide",
-        }
-        releases = [
-            self.release(titleid=f"{index:016X}", region=code)
-            for index, code in enumerate(regions, start=10)
-        ]
-        self.run_import(self.write_xml(*releases))
-        self.assertEqual(
-            {
-                title.region: title.subcategory.slug
-                for title in Title.objects.select_related("subcategory")
-            },
-            regions,
-        )
-        self.assertEqual(
-            list(
-                Subcategory.objects.filter(category__slug="games")
-                .order_by("protocol_id")
-                .values_list("protocol_id", flat=True)
-            ),
-            list(range(1, 16)),
-        )
-
-    def test_unexpected_region_falls_back_to_other_with_warning(self):
-        _, stderr = self.run_import(self.write_xml(self.release(region="MARS")))
-        title = Title.objects.get()
-        self.assertEqual((title.region, title.subcategory.slug), ("MARS", "other"))
-        self.assertIn("unexpected region 'MARS'; using Other", stderr)
+    def test_region_codes_are_normalized_without_catalog_taxonomy_side_effects(self):
+        self.run_import(self.write_xml(self.release(region="eur")))
+        self.assertEqual(CatalogEntry.objects.get().region, "EUR")
 
     def test_missing_and_outside_paths_raise_clear_errors(self):
         missing = Path(self.tempdir.name) / "missing.xml"
@@ -158,7 +159,7 @@ class ImportReleasesTests(TestCase):
         path.write_text(f"<releases>{self.release()}</releases", encoding="utf-8")
         with self.assertRaisesMessage(CommandError, "Could not parse XML"):
             call_command("import_releases", str(path))
-        self.assertFalse(Title.objects.exists())
+        self.assertFalse(CatalogEntry.objects.exists())
 
     def test_default_path_points_to_repository_xml(self):
         from apps.catalog.management.commands.import_releases import Command
@@ -168,24 +169,4 @@ class ImportReleasesTests(TestCase):
         self.assertEqual(
             Path(options["xml_path"]).resolve(),
             (settings.BASE_DIR / "3dsreleases.xml").resolve(),
-        )
-
-
-class CatalogRegionSeedTests(TestCase):
-    def test_existing_region_ids_remain_stable_and_new_ids_follow_them(self):
-        seed_catalog_taxonomy()
-        games = Category.objects.get(slug="games")
-        self.assertEqual(
-            list(
-                Subcategory.objects.filter(category=games)
-                .order_by("protocol_id")
-                .values_list("protocol_id", "slug")
-            )[:5],
-            [
-                (1, "north-america"),
-                (2, "europe"),
-                (3, "japan"),
-                (4, "other"),
-                (5, "china"),
-            ],
         )

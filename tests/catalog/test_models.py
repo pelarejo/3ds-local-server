@@ -1,7 +1,7 @@
 from django.test import SimpleTestCase
 
 from apps.authentication.models import User
-from apps.catalog.models import Category, Subcategory, Title
+from apps.catalog.models import CatalogEntry, Category, Subcategory, Title
 from apps.content.models import ContentArtifact, DownloadGrant
 
 
@@ -9,6 +9,7 @@ class ModelDocumentationTests(SimpleTestCase):
     def test_every_project_model_has_a_purpose_docstring(self):
         for model in (
             User,
+            CatalogEntry,
             Category,
             Subcategory,
             Title,

@@ -1,6 +1,22 @@
 from django.contrib import admin
 
-from .models import Category, Subcategory, Title
+from .models import CatalogEntry, Category, Subcategory, Title
+
+
+@admin.register(CatalogEntry)
+class CatalogEntryAdmin(admin.ModelAdmin):
+    list_display = (
+        "source",
+        "external_id",
+        "name",
+        "title_id",
+        "product_code",
+        "region",
+        "updated_at",
+    )
+    list_filter = ("source", "region")
+    search_fields = ("external_id", "name", "title_id", "product_code", "publisher")
+    readonly_fields = ("created_at", "updated_at")
 
 
 class SubcategoryInline(admin.TabularInline):

@@ -4,6 +4,37 @@ from django.db import models
 
 U8_VALIDATORS = [MinValueValidator(0), MaxValueValidator(255)]
 U16_VALIDATORS = [MinValueValidator(0), MaxValueValidator(65535)]
+TITLE_ID_VALIDATOR = RegexValidator(
+    r"\A[0-9A-Fa-f]{16}\Z", "Enter exactly 16 hexadecimal digits."
+)
+
+
+class CatalogEntry(models.Model):
+    """Provider-sourced metadata staged for review before catalog publication."""
+
+    source = models.CharField(max_length=64)
+    external_id = models.CharField(max_length=255)
+    title_id = models.CharField(max_length=16, validators=[TITLE_ID_VALIDATOR])
+    name = models.CharField(max_length=255)
+    product_code = models.CharField(max_length=64, blank=True)
+    region = models.CharField(max_length=64, blank=True)
+    publisher = models.CharField(max_length=255, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("source", "external_id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("source", "external_id"),
+                name="unique_catalog_entry_source_external_id",
+            )
+        ]
+        verbose_name_plural = "catalog entries"
+
+    def __str__(self) -> str:
+        return f"{self.source}: {self.name}"
 
 
 class Category(models.Model):
@@ -60,11 +91,7 @@ class Title(models.Model):
     title_id = models.CharField(
         max_length=16,
         unique=True,
-        validators=[
-            RegexValidator(
-                r"\A[0-9A-Fa-f]{16}\Z", "Enter exactly 16 hexadecimal digits."
-            )
-        ],
+        validators=[TITLE_ID_VALIDATOR],
         help_text="16 hexadecimal digit Nintendo title ID",
     )
     name = models.CharField(max_length=255)
