@@ -12,6 +12,9 @@ CIA packages are included.
 The project is intentionally focused: a compact Django service for running a
 private, 3HS-compatible library on infrastructure you control.
 
+See [Deploying 3LS Server](DEPLOYMENT.md) for the Docker-based setup and service
+commands.
+
 ## License
 
 Copyright (C) 2026 pelarejo

@@ -1,0 +1,35 @@
+services:
+  server:
+    build: .
+    env_file:
+      - .threels.env
+    environment:
+      CONTENT_ROOT: /srv/3ls/content
+      SYSTEM_ROOT: /srv/3ls/system
+      SQLITE_DATABASE_PATH: /srv/3ls/data/db.sqlite3
+      STATIC_ROOT: /srv/3ls/data/static
+    ports:
+      - "0.0.0.0:${THREELS_PORT:-8000}:8000"
+    volumes:
+      - type: bind
+        source: "${THREELS_CONTENT_PATH:-./content}"
+        target: /srv/3ls/content
+      - type: bind
+        source: "${THREELS_SYSTEM_PATH:-./system}"
+        target: /srv/3ls/system
+        read_only: true
+      - type: bind
+        source: "${THREELS_DATA_PATH:-./data}"
+        target: /srv/3ls/data
+    user: "${THREELS_UID:-10001}:${THREELS_GID:-10001}"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/admin/login/', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
