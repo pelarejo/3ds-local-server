@@ -1,0 +1,224 @@
+#!/bin/sh
+set -eu
+
+PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CONFIG_FILE="$PROJECT_DIR/.threels.env"
+
+usage() {
+    echo "Usage: ./threels {setup|start|stop|restart|status|logs|create-admin}"
+    echo "       ./threels create-client [--username NAME] [--token-name NAME] [--rotate]"
+}
+
+require_docker() {
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "Docker is required. Install and start Docker Desktop first." >&2
+        exit 1
+    fi
+    if ! docker compose version >/dev/null 2>&1; then
+        echo "Docker Compose is required." >&2
+        exit 1
+    fi
+}
+
+require_config() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "Run ./threels setup first." >&2
+        exit 1
+    fi
+}
+
+compose() {
+    docker compose --env-file "$CONFIG_FILE" -f "$PROJECT_DIR/compose.yaml" "$@"
+}
+
+prompt() {
+    label=$1
+    default=$2
+    printf "%s [%s]: " "$label" "$default" >&2
+    read -r answer
+    if [ -n "$answer" ]; then
+        printf "%s" "$answer"
+    else
+        printf "%s" "$default"
+    fi
+}
+
+valid_ipv4() {
+    printf "%s\n" "$1" | awk -F. '
+        NF == 4 {
+            for (i = 1; i <= 4; i++) {
+                if ($i !~ /^[0-9]+$/ || $i < 0 || $i > 255) exit 1
+            }
+            if ($1 == 127 || $1 == 0) exit 1
+            exit 0
+        }
+        { exit 1 }
+    '
+}
+
+detect_lan_ipv4() {
+    candidate=""
+    if command -v ipconfig >/dev/null 2>&1; then
+        for interface in en0 en1; do
+            candidate=$(ipconfig getifaddr "$interface" 2>/dev/null || true)
+            if valid_ipv4 "$candidate"; then
+                printf "%s" "$candidate"
+                return
+            fi
+        done
+    fi
+    if command -v ip >/dev/null 2>&1; then
+        candidate=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '
+            { for (i = 1; i <= NF; i++) if ($i == "src") { print $(i + 1); exit } }
+        ')
+        if valid_ipv4 "$candidate"; then
+            printf "%s" "$candidate"
+            return
+        fi
+    fi
+    if command -v hostname >/dev/null 2>&1; then
+        for candidate in $(hostname -I 2>/dev/null || true); do
+            if valid_ipv4 "$candidate"; then
+                printf "%s" "$candidate"
+                return
+            fi
+        done
+    fi
+}
+
+resolve_directory() {
+    label=$1
+    default=$2
+    value=$(prompt "$label" "$default")
+    carriage_return=$(printf '\r')
+    case "$value" in
+        *"$carriage_return"*|*'$'*|*'#'*|*'"'*|*"'"*|*\\*)
+            echo "$label contains characters that cannot be stored safely." >&2
+            exit 1
+            ;;
+    esac
+    case "$value" in
+        /*) directory=$value ;;
+        *) directory=$PROJECT_DIR/$value ;;
+    esac
+    mkdir -p "$directory"
+    (CDPATH= cd -- "$directory" && pwd -P)
+}
+
+setup() {
+    require_docker
+    if [ -f "$CONFIG_FILE" ]; then
+        echo "3LS is already configured. Use ./threels start or edit .threels.env." >&2
+        exit 1
+    fi
+    umask 077
+    detected_host=$(detect_lan_ipv4)
+    if [ -n "$detected_host" ]; then
+        host=$(prompt "LAN hostname or IP used by clients" "$detected_host")
+    else
+        echo "A LAN IPv4 address could not be detected." >&2
+        echo "Enter the hostname or IP that your Nintendo 3DS can reach." >&2
+        host=$(prompt "LAN hostname or IP used by clients" "required")
+        [ "$host" != "required" ] || host=""
+    fi
+    port=$(prompt "Published port" "8000")
+    case "$host" in *[!A-Za-z0-9.,:_-]*|'')
+        echo "Host must contain only hostname/IP characters (commas are allowed)." >&2
+        exit 1
+    esac
+    case "$port" in *[!0-9]*|'')
+        echo "Port must be numeric." >&2
+        exit 1
+    esac
+    if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        echo "Port must be between 1 and 65535." >&2
+        exit 1
+    fi
+    if command -v lsof >/dev/null 2>&1 && lsof -n -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+        echo "Port $port is already in use." >&2
+        exit 1
+    fi
+    if command -v openssl >/dev/null 2>&1; then
+        secret=$(openssl rand -hex 32)
+    else
+        secret=$(LC_ALL=C od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
+    fi
+    uid=$(id -u)
+    gid=$(id -g)
+    content_path=$(resolve_directory "Host content directory" "./content")
+    system_path=$(resolve_directory "Host system directory" "./system")
+    data_path=$(resolve_directory "Host data directory" "./data")
+    {
+        echo "DJANGO_SECRET_KEY=$secret"
+        echo "DJANGO_DEBUG=false"
+        echo "DJANGO_ALLOWED_HOSTS=$host,localhost,127.0.0.1"
+        echo "THREELS_PORT=$port"
+        echo "THREELS_UID=$uid"
+        echo "THREELS_GID=$gid"
+        echo "THREELS_CONTENT_PATH=$content_path"
+        echo "THREELS_SYSTEM_PATH=$system_path"
+        echo "THREELS_DATA_PATH=$data_path"
+        echo "GUNICORN_WORKERS=1"
+    } >"$CONFIG_FILE"
+    chmod 600 "$CONFIG_FILE"
+    compose build
+    compose up -d
+    echo "3LS Server is starting at http://$host:$port/"
+    echo "Next: ./threels create-admin and ./threels create-client"
+}
+
+create_client() {
+    require_config
+    username=""
+    token_name=""
+    rotate=""
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --username) [ "$#" -ge 2 ] || { usage; exit 2; }; username=$2; shift 2 ;;
+            --token-name) [ "$#" -ge 2 ] || { usage; exit 2; }; token_name=$2; shift 2 ;;
+            --rotate) rotate="--rotate"; shift ;;
+            *) usage; exit 2 ;;
+        esac
+    done
+    [ -n "$username" ] || username=$(prompt "Client username" "3ds")
+    [ -n "$token_name" ] || token_name=$(prompt "Token name" "Nintendo 3DS")
+    if [ -z "$rotate" ] && [ -t 0 ]; then
+        printf "Revoke this user's existing tokens first? [y/N]: "
+        read -r answer
+        case "$answer" in [Yy]|[Yy][Ee][Ss]) rotate="--rotate" ;; esac
+    fi
+    # The token is printed directly once and is never written by this helper.
+    if [ -n "$rotate" ]; then
+        compose exec server python manage.py create_client \
+            --username "$username" --token-name "$token_name" --rotate
+    else
+        compose exec server python manage.py create_client \
+            --username "$username" --token-name "$token_name"
+    fi
+    # Read only non-secret connection values from the private config.
+    server_host=$(sed -n 's/^DJANGO_ALLOWED_HOSTS=\([^,]*\).*/\1/p' "$CONFIG_FILE")
+    server_port=$(sed -n 's/^THREELS_PORT=//p' "$CONFIG_FILE")
+    echo "On your client, enter server $server_host, port $server_port,"
+    echo "then the username and one-time token shown above."
+}
+
+command=${1:-}
+[ "$#" -eq 0 ] || shift
+case "$command" in
+    setup) setup ;;
+    start) require_docker; require_config; compose up -d ;;
+    stop) require_docker; require_config; compose down ;;
+    restart) require_docker; require_config; compose restart ;;
+    status) require_docker; require_config; compose ps ;;
+    logs) require_docker; require_config; compose logs -f --tail=100 ;;
+    create-admin)
+        require_docker
+        require_config
+        compose exec server python manage.py createsuperuser
+        ;;
+    create-client)
+        require_docker
+        create_client "$@"
+        ;;
+    *) usage; exit 2 ;;
+esac

@@ -244,7 +244,7 @@ class ContentArtifactManualImportAdminTests(TestCase):
         field = page.context["form"].fields["existing_title"]
         self.assertEqual(field.widget.__class__.__name__, "AutocompleteSelect")
         self.assertContains(page, "admin-autocomplete")
-        self.assertContains(page, "autocomplete.js")
+        self.assertContains(page, "autocomplete.")
 
         response = self.client.get(
             reverse("admin:autocomplete"),
@@ -276,7 +276,7 @@ class ContentArtifactManualImportAdminTests(TestCase):
         field = page.context["form"].fields["new_subcategory"]
         self.assertEqual(field.widget.__class__.__name__, "AutocompleteSelect")
         self.assertContains(page, "admin-autocomplete")
-        self.assertContains(page, "autocomplete.js")
+        self.assertContains(page, "autocomplete.")
         self.assertNotContains(page, "subcategory_autocomplete.js")
 
         response = self.client.get(

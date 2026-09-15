@@ -5,7 +5,7 @@ from datetime import timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SYSTEM_ROOT = BASE_DIR / "system"
+SYSTEM_ROOT = Path(os.environ.get("SYSTEM_ROOT", str(BASE_DIR / "system")))
 
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY", "django-insecure-development-only-change-me"
@@ -31,6 +31,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -61,7 +62,9 @@ WSGI_APPLICATION = "threels_server.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": Path(
+            os.environ.get("SQLITE_DATABASE_PATH", str(BASE_DIR / "db.sqlite3"))
+        ),
         "USER": os.environ.get("DB_USER", ""),
         "PASSWORD": os.environ.get("DB_PASSWORD", ""),
         "HOST": os.environ.get("DB_HOST", ""),
@@ -85,6 +88,13 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = Path(os.environ.get("STATIC_ROOT", str(BASE_DIR / "staticfiles")))
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    },
+}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "authentication.User"
 

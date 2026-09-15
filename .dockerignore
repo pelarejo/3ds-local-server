@@ -1,0 +1,17 @@
+.git
+.venv
+__pycache__
+*.py[cod]
+*.sqlite3
+.env
+.threels.env
+content
+data
+system
+staticfiles
+3dsreleases.xml
+*.cia
+*.3ds
+*.tik
+*.cert
+*.seed
